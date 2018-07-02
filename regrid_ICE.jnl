@@ -1,0 +1,7 @@
+! Regrid the ICE-6G fields for use with POEM using land_lad2.
+! Note that this is regridding to the LAND MODEL grid, NOT the MOM5 grid.
+! Run using (py)ferret -script regrid_ICE $1
+! where $1 is the kyr BP (eg. 21.0)
+
+use "/p/projects/climber3/huiskamp/POEM/work/LGM_data/ICE-6G-C/I6_C.VM5a_1deg.$1.nc"
+use "/p/projects/climber3/petri/POEM/exp/ESM2M_pi-control_C2/INPUT/cover_type.nc"

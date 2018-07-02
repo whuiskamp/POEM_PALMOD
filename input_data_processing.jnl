@@ -1,0 +1,48 @@
+!! Produce bathymetry ('topog.nc') and ice sheet model file ('ground_type.nc') for POEM for a deglacial simulation.
+!! The assumption is that the model is using MOM5 and land_lad2.
+!! Data are from the ICE-6G-C reconstruction associated with the following two
+!! references:  
+!! Argus, D.F., Peltier, W.R., Drummond, R. and Moore, A.W.(2014) 
+!! The Antarctica component of postglacial rebound model ICE-6G_C (VM5a) based 
+!! upon GPS positioning, exposure age dating of ice thicknesses, and relative sea 
+!! level histories. Geophys. J. Int., 198(1), 537-563, doi:10.1093/gji/ggu140.
+!!
+!! Peltier, W.R., Argus, D.F. and Drummond, R. (2015) Space geodesy constrains 
+!! ice-age terminal deglaciation: The global ICE-6G_C (VM5a) model.
+!! J. Geophys. Res. Solid Earth, 120, 450-487, doi:10.1002/2014JB011176. 
+!! 
+!! Use a binomal smoother x/y=@sbn:3 (3 is the default window size)
+!! 
+!! Script should be run with year as argument. For eg: ferret -script input_data_processing 21.0
+!! $1 is year
+! 1) Read in present day bathymetry from ICE-6G reconstruction and the bathy for the 
+! 	 selected time-slice. Read in a file that contains a variable on the tripolar grid.
+
+use "ICE-6G-C/I6_C.VM5a_1deg.0.nc" 1
+use "ICE-6G-C/I6_C.VM5a_1deg.$1.nc" 2
+use "/p/projects/climber3/huiskamp/POEM/work/om3Xcoarse-advtest-001/history/20000203.ocean_decadal.nc" 3
+use "/p/projects/climber3/huiskamp/POEM/exp/CM2M_coarse_BLING/INPUT/ground_type.nc" 4
+
+! 2) Edit ice sheet map in ground_types data, then alter the land/sea mask.
+
+let cover2 = if SFTGIF[d=2] gt 0 then 9 else cover[d=4]
+save/file=ground_type_$1k.nc cover2
+
+! 3) Create anomalies of bathy on the model grid and get rid of topography.
+! 4) Use ice sheet extent data to alter land/sea mask in topo data
+
+let top_$1 = topo[d=2,gxy=temp[d=3]]-topo[d=1,gxy=temp[d=3]]
+let topo_$1 = if (ht[d=3] gt 0 AND cover2 = 9) then top_$1[x=@sbn:3,y=@sbn:3] else 0
+set variable/bad=0 topo_$1
+
+! 3) Apply sea level changes to existing topography
+
+spawn python adjust_topo.py
+
+! 5) 
+
+spawn mv topog_$1k.nc topog_$1k.nc.bak
+save/clobber/file=topog_$1k.nc topo_$1
+
+ex
+
