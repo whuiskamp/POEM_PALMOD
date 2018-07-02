@@ -1,3 +1,6 @@
-Descriptions of scripts
+These scripts are for the preparation and integration of both an equilibrium and transient simulations of the last deglacial 
+period using PIK's POEM model. Currently the configuration being used is: MOM5 in p* coordinates on a tripolar grid,
+SIS sea ice model, LM2 (land_lad2) land surface model, Aeolus atmospheric model and the ICE-6G-C ice sheet reconstruction.
 
-regrid_ICE.jnl - Regrid the ICE-6G fields for use with POEM using land_lad2
+Description of each scripts' function:
+
