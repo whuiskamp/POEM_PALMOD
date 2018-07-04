@@ -4,4 +4,9 @@
 ! where $1 is the kyr BP (eg. 21.0)
 
 use "/p/projects/climber3/huiskamp/POEM/work/LGM_data/ICE-6G-C/I6_C.VM5a_1deg.$1.nc"
-use "/p/projects/climber3/petri/POEM/exp/ESM2M_pi-control_C2/INPUT/cover_type.nc"
+use "/p/projects/climber3/huiskamp/POEM/work/LGM_data/River_data/river_network_mrg_0.5deg_autodrain_3nov08.fill_coast_auto2.nc"
+
+let orog_ll2 = orog[gxy=tocell[d=2],d=1] 
+! include any other fields here you may need later
+
+save/file=I6_C.VM5a_LL2.$1.nc orog_ll2

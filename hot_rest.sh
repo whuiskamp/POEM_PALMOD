@@ -1,16 +1,36 @@
 #!/bin/bash
 ## This script alters the INPUT restart files for MOM5 in order to 
 ## change boundary conditions such as topography/ land sea mask mid-way through a 
-## simulation. Run this from the experiment directory, NOT the INPUT dir.
+## simulation. Many sections of this script will only need to be run once.
+## Run this from the experiment directory, NOT the INPUT dir.
 ## This script uses: Requires the GFDL/MOM tools (POEM/src/tools) make_topog,
-## make_coupler_mosaic, 
+## make_coupler_mosaic, river_regrid ..
+## You will also need the python package landlab and all its dependencies. 
 ##
 ## Remeber to set checksum_required = .false. in fms_io_nml in your input.nml file
 ## as we will be editing fields in the restart and they will no longer match their 
 ## checksums.
 ##
-## W. Huiskamp, 2018   huiskamp@pik-potsdam.de
+## W. Huiskamp, 2018 -  huiskamp@pik-potsdam.de
 
+#################################### Before simulation ########################################
+
+# 1) Prepare Forcing files for ocean (topography and masks)
+
+# 2) Prepare river routing scheme files
+
+source activate LGM
+
+source deactivate LGM
+
+# 3) 
+
+
+
+
+
+
+#################################### During simulation ########################################
 ## 1) Create a directory and copy the restart files there
 
 for i in $(awk '/Current/{print $1}' RESTART/coupler.res); do mkdir restart_files_yr_$i; mv RESTART/* restart_files_yr_$i; done
