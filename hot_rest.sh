@@ -20,6 +20,9 @@
 # 2) Prepare river routing scheme files
 
 source activate LGM
+for i in $(seq 0.5 0.5 21); do\
+    python river_data_prep.py ice_topo_$i river_in river_out $i
+
 
 source deactivate LGM
 

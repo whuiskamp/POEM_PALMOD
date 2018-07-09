@@ -9,4 +9,4 @@ use "/p/projects/climber3/huiskamp/POEM/work/LGM_data/River_data/river_network_m
 let orog_ll2 = orog[gxy=tocell[d=2],d=1] 
 ! include any other fields here you may need later
 
-save/file=I6_C.VM5a_LL2.$1.nc orog_ll2
+save/file="/p/projects/climber3/huiskamp/POEM/work/LGM_data/ICE-6G-C/ICE-6G-C_LL2/I6_C.VM5a_LL2.$1.nc" orog_ll2
