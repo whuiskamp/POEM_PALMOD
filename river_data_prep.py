@@ -34,13 +34,13 @@ ice_topo_f = np.flipud(ice_topo)
 lon = ice.variables['GRID_X']
 lat = ice.variables['GRID_Y']
 
-# Extend the field at the bottom and sides to avoid hard boundaries.
+# Extend the field at the bottom and sides by two (one will contain no flow) to avoid hard boundaries.
 # Note that ICE-6G-C fields have a row of NaNs at the bottom and top of the field
 # For our purposes, we can use this row in Antarctica for our extension.
-extend_t = np.zeros([lat.shape[0],lon.shape[0]+2])
-extend_t[0:lat.shape[0],1:lon.shape[0]+1] = ice_topo_f[:,:] 
-extend_t[0:lat.shape[0],0] = ice_topo_f[:,-1]; extend_t[0:lat.shape[0],-1] = ice_topo_f[:,0] # pad sides
-extend_t[-1,1:lon.shape[0]+1] = ice_topo_f[-2,::-1] # pad bottom
+extend_t = np.zeros([lat.shape[0]+1,lon.shape[0]+4])
+extend_t[0:lat.shape[0],2:lon.shape[0]+2] = ice_topo_f[:,:] 
+extend_t[0:lat.shape[0],0:1] = ice_topo_f[:,-2:-1]; extend_t[0:lat.shape[0],-2:-1] = ice_topo_f[:,0:1] # pad sides
+extend_t[-2:-1,2:lon.shape[0]+2] = ice_topo_f[-3:-2,::-1] # pad bottom
 
 # Create raster grid for flow calculation and add data
 fg = RasterModelGrid((extend_t.shape[0], extend_t.shape[1]), spacing=(1, 1))
@@ -53,18 +53,50 @@ fr = FlowRouter(fg)
 fg = fr.route_flow()
 
 # Output is a single vector which can be reshaped with 
-test = fg.at_node['flow__receiver_node']
-test2 = np.reshape(test, (-1, 722))
+flow_rec = fg.at_node['flow__receiver_node']
+test2 = np.reshape(flow_rec, (-1, extend_t.shape[1]))
 test3 = fg.at_node['flow__link_to_receiver_node']
-test4 = np.reshape(test3, (-1, 722))
+test4 = np.reshape(test3, (-1, extend_t.shape[1]))
 
 drainage_plot(fg, title='Grid 2 using FlowDirectorD8')
 
+# Convert to a 'tocell' field
+# In land_lad2, directions are defined as follows
+# [8,   4,    2]
+# [16,  0,    1]
+# [32,  64, 128]
+tocell_tmp = np.zeros([flow_rec[0]])
+for i in range(flow_rec.shape[0]):
+#	print('i= '+str(i))
+	if flow_rec[i] == i: # if it flows to itself
+		tocell_tmp[i] = 0
+	elif flow_rec[i] == i+1: # to the east
+		tocell_tmp[i] = 1
+	elif flow_rec[i] == i+extend_t.shape[1]: # to the south
+		tocell_tmp[i] = 64
+	elif flow_rec[i] == i+extend_t.shape[1]+1: # to the south-east
+		tocell_tmp[i] = 128
+	elif flow_rec[i] == i-1: # to the west
+		tocell_tmp[i] = 16
+	elif flow_rec[i] == i+extend_t.shape[1]-1: # to the south-west
+		tocell_tmp[i] = 32
+	elif flow_rec[i] == i-extend_t.shape[1]: # to the north
+		tocell_tmp[i] = 4
+	elif flow_rec[i] == i-extend_t.shape[1]+1: # to the north-east
+		tocell_tmp[i] = 2
+	elif flow_rec[i] == i-extend_t.shape[1]-1: # to the north-east
+		tocell_tmp[i] = 8
+	else:
+		print('Something has gone wrong at point ' + str(i))
+
+tocell = np.reshape(tocell_tmp,(-1,extend_t.shape[1]))
+plt.imshow(tocell)
+plt.show()
 
 
 
 
-# 2) Import the regridded ice extend fields, so we know which regions of the
+# ) Import the regridded ice extend fields, so we know which regions of the
 #    flow map need to be updated.
 # Import ice sheet mask and isolate these regions in our new flow field
 
@@ -72,7 +104,7 @@ drainage_plot(fg, title='Grid 2 using FlowDirectorD8')
 
 
 
-# 3) Combine new fields with existing river network data 
+# ) Combine new fields with existing river network data 
 # Import re-gridded STN-30p river network
 
 river = Dataset(river_rout_in,'r')
