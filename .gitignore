@@ -1,3 +1,4 @@
 tmp.py
 regrid_icesheet.jnl
 README_hot_restart
+*.nc

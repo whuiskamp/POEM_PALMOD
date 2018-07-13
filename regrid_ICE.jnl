@@ -7,6 +7,9 @@ use "/p/projects/climber3/huiskamp/POEM/work/LGM_data/ICE-6G-C/I6_C.VM5a_1deg.$1
 use "/p/projects/climber3/huiskamp/POEM/work/LGM_data/River_data/river_network_mrg_0.5deg_autodrain_3nov08.fill_coast_auto2.nc"
 
 let orog_ll2 = orog[gxy=tocell[d=2],d=1] 
+let ice_mask_ll2 = sftgif[gxy=tocell[d=2],d=1] 
+
 ! include any other fields here you may need later
 
-save/file="/p/projects/climber3/huiskamp/POEM/work/LGM_data/ICE-6G-C/ICE-6G-C_LL2/I6_C.VM5a_LL2.$1.nc" orog_ll2
+spawn rm /p/projects/climber3/huiskamp/POEM/work/LGM_data/ICE-6G-C/ICE-6G-C_LL2/I6_C.VM5a_LL2.$1.nc
+save/file="/p/projects/climber3/huiskamp/POEM/work/LGM_data/ICE-6G-C/ICE-6G-C_LL2/I6_C.VM5a_LL2.$1.nc" orog_ll2,  ice_mask_ll2
