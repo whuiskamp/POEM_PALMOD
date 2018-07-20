@@ -52,7 +52,7 @@ extend_t[0:lat.shape[0]-1,lon.shape[0]*2:lon.shape[0]*3] = ice_topo_f[0:lat.shap
 extend_t[lat.shape[0]-1:lat.shape[0]*2-2,0:lon.shape[0]*3] = np.fliplr(np.flipud(extend_t[0:lat.shape[0]-1,0:lon.shape[0]*3])) # pad bottom
 
 ######### Test with NaNs
-extend_t[extend_t==0] = np.nan
+# extend_t[extend_t==0] = np.nan # Tool doesn't like NaNs
 #########
 
 # Create raster grid for flow calculation and add data
@@ -65,40 +65,42 @@ fg.set_closed_boundaries_at_grid_edges(False, False, False, False)
 fr = FlowRouter(fg)
 fg = fr.route_flow()
 
-drainage_plot(fg, title='Grid 2 using FlowDirectorD8')
+#drainage_plot(fg, title='Grid 2 using FlowDirectorD8')
 
 # Find depressions, create lakes and route through them
-df = DepressionFinderAndRouter(fg)
-df.map_depressions() # reroute_flow defaults to True
-df.lake_at_node.reshape(fg.shape)
+#df = DepressionFinderAndRouter(fg)
+#df.map_depressions() # reroute_flow defaults to True
+#df.lake_at_node.reshape(fg.shape)
 
-plt.imshow(df.lake_at_node.reshape(fg.shape)) # show boolean field of lakes (T/F)
-plt.show()
+#plt.imshow(df.lake_at_node.reshape(fg.shape)) # show boolean field of lakes (T/F)
+#plt.show()
 
-plt.imshow(df.lake_map.reshape(fg.shape)) # show lake by code no.
-plt.show()
+#plt.imshow(df.lake_map.reshape(fg.shape)) # show lake by code no.
+#plt.show()
 
 # Alternatively, fill in depressions
 fg.at_node['flow__sink_flag'][fg.core_nodes].sum() # how many depressions do we have?
 hf = SinkFiller(fg, apply_slope=False)
-
+hf.run_one_step()
 
 # Output is a single vector which can be reshaped with 
 flow_rec = fg.at_node['flow__receiver_node']
-test2 = np.reshape(flow_rec, (-1, extend_t.shape[1]))
-test3 = fg.at_node['flow__link_to_receiver_node']
-test4 = np.reshape(test3, (-1, extend_t.shape[1]))
-test5 = fg.at_node['drainage_area']
-test6 = np.reshape(test5, (-1, extend_t.shape[1]))
+#test2 = np.reshape(flow_rec, (-1, extend_t.shape[1]))
+#test3 = fg.at_node['flow__link_to_receiver_node']
+#test4 = np.reshape(test3, (-1, extend_t.shape[1]))
+# test5 = fg.at_node['drainage_area']
+# test6 = np.reshape(test5, (-1, extend_t.shape[1]))
 
-plt.imshow(test6, range=(0, 1000))
+# plt.imshow(test6)
 
 
 # Convert to a 'tocell' field
 # In land_lad2, directions are defined as follows
-# [8,   4,    2]
-# [16,  0,    1]
 # [32,  64, 128]
+# [16,  0,    1]
+# [8,   4,    2]
+
+
 
 tocell_tmp = np.zeros([flow_rec.shape[0]])
 for i in range(flow_rec.shape[0]):
@@ -108,44 +110,48 @@ for i in range(flow_rec.shape[0]):
 	elif flow_rec[i] == i+1: # to the east
 		tocell_tmp[i] = 1
 	elif flow_rec[i] == i+extend_t.shape[1]: # to the south
-		tocell_tmp[i] = 64
+		tocell_tmp[i] = 4
 	elif flow_rec[i] == i+extend_t.shape[1]+1: # to the south-east
-		tocell_tmp[i] = 128
+		tocell_tmp[i] = 2
 	elif flow_rec[i] == i-1: # to the west
 		tocell_tmp[i] = 16
 	elif flow_rec[i] == i+extend_t.shape[1]-1: # to the south-west
-		tocell_tmp[i] = 32
-	elif flow_rec[i] == i-extend_t.shape[1]: # to the north
-		tocell_tmp[i] = 4
-	elif flow_rec[i] == i-extend_t.shape[1]+1: # to the north-east
-		tocell_tmp[i] = 2
-	elif flow_rec[i] == i-extend_t.shape[1]-1: # to the north-east
 		tocell_tmp[i] = 8
+	elif flow_rec[i] == i-extend_t.shape[1]: # to the north
+		tocell_tmp[i] = 64
+	elif flow_rec[i] == i-extend_t.shape[1]+1: # to the north-east
+		tocell_tmp[i] = 128
+	elif flow_rec[i] == i-extend_t.shape[1]-1: # to the north-west
+		tocell_tmp[i] = 32
 	else:
 		print('Something has gone wrong at point ' + str(i))
 
 tocell = np.reshape(tocell_tmp,(-1,extend_t.shape[1]))
-plt.imshow(tocell)
-plt.show()
+tocell_c = np.zeros([lat.shape[0],lon.shape[0]])
+tocell_c = tocell[0:lat.shape[0],lon.shape[0]:lon.shape[0]*2]
 
+# plt.imshow(tocell_c)
+# plt.show()
 
+# 2) Generate ice sheet mask and isolate these regions in our new flow field
 
+tocell_ma = np.ma.masked_where(ice_mask_f==0, tocell_c,copy=True)
 
-# ) Generate ice sheet mask and isolate these regions in our new flow field
-# 
+# ~tocell_ma.mask # should be the boolean mask info. 
 
-tocell_mask = np.ma.masked_where(ice_mask==0, tocell)
-
-~tocell_mask.mask # should be the boolean mask info. 
-
-# ) Combine new fields with existing river network data 
+# 3) Combine new fields with existing river network data 
 # Import re-gridded STN-30p river network
 
-river = Dataset(river_rout_in,'r')
-# Something like ..
+# river = Dataset(river_rout_in,'r')
+# river = Dataset('/p/projects/climber3/huiskamp/POEM/work/LGM_data/River_data/river_network_mrg_0.5deg_autodrain_3nov08.fill_coast_auto2.nc','r')
+# tocell_pi = river.variables['tocell'];
+# tocell_pi_f = np.flipud(tocell_pi)
 
-tocell_LGM[:,:] = river[:,:]
-tocell_LGM[~tocell_mask.mask==True] = tocell_mask
+# tocell_LGM = tocell_pi_f
+# tocell_LGM[~tocell_ma.mask==True] = tocell_ma[:,:]
+tocell_LGM[~tocell_ma.mask] = tocell_ma
+# tocell_LGM = np.ma.masked_where(ice_mask_f==0, tocell_ma,copy=True)
+
 # Update PI flow field with the new one
 
 
@@ -153,7 +159,7 @@ tocell_LGM[~tocell_mask.mask==True] = tocell_mask
 # Output to NetCDF file
 print 'Writing NetCDF file'
 # id = Dataset(river_rout_out, 'w')
-id = Dataset('test2.nc', 'w')
+id = Dataset('/p/projects/climber3/huiskamp/POEM/work/LGM_data/River_data/test.nc', 'w')
 id.createDimension('longitude', lon.shape[0])
 id.createDimension('latitude', lat.shape[0])
 id.createVariable('longitude', 'f8', ('longitude'))
@@ -162,18 +168,18 @@ id.variables['longitude'][:] = lon[:]
 id.createVariable('latitude', 'f8', ('latitude'))
 id.variables['latitude'].units = 'degrees'
 id.variables['latitude'][:] = lat[:]
-#id.createVariable('tocell', 'f8', ('latitude', 'longitude'))
-#id.variables['tocell'].units = 'none'
-#id.variables['tocell'][:,:] = test2
-id.createVariable('FRN', 'f8',('latitude','longitude'))
-id.variables['FRN'].units = 'none'
-id.variables['FRN'][:,:] = np.flipud(test2[:,1:721])
-id.createVariable('FLRN', 'f8',('latitude','longitude'))
-id.variables['FLRN'].units = 'none'
-id.variables['FLRN'][:,:] = np.flipud(test4[:,1:721])
-id.createVariable('drn_area', 'f8',('latitude','longitude'))
-id.variables['drn_area'].units = 'none'
-id.variables['drn_area'][:,:] = np.flipud(test6[0:360,2:722])
+id.createVariable('tocell', 'f8', ('latitude', 'longitude'))
+id.variables['tocell'].units = 'none'
+id.variables['tocell'][:,:] = np.flipud(tocell_ma)
+# id.createVariable('FRN', 'f8',('latitude','longitude'))
+# id.variables['FRN'].units = 'none'
+# id.variables['FRN'][:,:] = np.flipud(test2[:,1:721])
+# id.createVariable('FLRN', 'f8',('latitude','longitude'))
+# id.variables['FLRN'].units = 'none'
+# id.variables['FLRN'][:,:] = np.flipud(test4[:,1:721])
+# id.createVariable('drn_area', 'f8',('latitude','longitude'))
+# id.variables['drn_area'].units = 'none'
+# id.variables['drn_area'][:,:] = np.flipud(test6[0:360,2:722])
 id.close()
 
 
