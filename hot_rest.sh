@@ -3,9 +3,9 @@
 ## change boundary conditions such as topography/ land sea mask mid-way through a 
 ## simulation. Many sections of this script will only need to be run once.
 ## Run this from the experiment directory, NOT the INPUT dir.
-## This script uses: Requires the GFDL/MOM tools (POEM/src/tools) make_topog,
-## make_coupler_mosaic, river_regrid ..
-## You will also need the python package landlab and all its dependencies. 
+## This script requires: GFDL/MOM tools (POEM/src/tools) make_topog,
+##                       make_coupler_mosaic, river_regrid ..
+##                       the Python package landlab and all its dependencies. 
 ##
 ## Remeber to set checksum_required = .false. in fms_io_nml in your input.nml file
 ## as we will be editing fields in the restart and they will no longer match their 
@@ -17,9 +17,14 @@
 
 # 1) Prepare Forcing files for ocean (topography and masks)
 
+# Generate new topography
+
+# Generate new masks
+
+
 # 2) Prepare river routing scheme files
 
-source activate LGM
+source activate LGM # This python environment is used for landlab. It simply loads this package, python3, and all dependencies
 for i in $(seq 0.5 0.5 21); do\
     python river_data_prep.py ice_topo_$i river_in river_out $i
 

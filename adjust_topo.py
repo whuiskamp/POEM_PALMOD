@@ -24,9 +24,11 @@ new_t[:] = old_t[:] + delta_t[:]
 new_t[new_t<=0] = 0
 new_t[0<new_t<30] = 30
 
-# for i in range(1,new_t.shape[0]+1):
-# 	for j in range(1,new_t.shape[1]+1):
-# 		if delta_t(i,j) == 0:
-# 		   new_t(i,j) == 0 
-
+id = Dataset(new_topo_out, 'w')
+id.createDimension('longitude', lon.shape[0])
+id.createDimension('latitude', lat.shape[0])
+id.createVariable('depth', 'f8', ('latitude', 'longitude'))
+id.variables['depth'].units = 'none'
+id.variables['depth'][:,:] = new_t
+id.close()
 

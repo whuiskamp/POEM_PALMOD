@@ -95,10 +95,11 @@ flow_rec = fg.at_node['flow__receiver_node']
 
 
 # Convert to a 'tocell' field
-# In land_lad2, directions are defined as follows
-# [32,  64, 128]
-# [16,  0,    1]
-# [8,   4,    2]
+# In land_lad2, directions are defined using the standard D8 method as follows
+#
+# [32, 64, 128]
+# [16, 0,    1]
+# [8,  4,    2]
 
 
 
@@ -136,6 +137,9 @@ tocell_c = tocell[0:lat.shape[0],lon.shape[0]:lon.shape[0]*2]
 # 2) Generate ice sheet mask and isolate these regions in our new flow field
 
 tocell_ma = np.ma.masked_where(ice_mask_f==0, tocell_c,copy=True)
+# Remove Antarctica
+tocell_ma.mask[300:,:] = True
+
 
 # ~tocell_ma.mask # should be the boolean mask info. 
 
@@ -143,18 +147,39 @@ tocell_ma = np.ma.masked_where(ice_mask_f==0, tocell_c,copy=True)
 # Import re-gridded STN-30p river network
 
 # river = Dataset(river_rout_in,'r')
-# river = Dataset('/p/projects/climber3/huiskamp/POEM/work/LGM_data/River_data/river_network_mrg_0.5deg_autodrain_3nov08.fill_coast_auto2.nc','r')
-# tocell_pi = river.variables['tocell'];
-# tocell_pi_f = np.flipud(tocell_pi)
+river = Dataset('/p/projects/climber3/huiskamp/POEM/work/LGM_data/River_data/river_network_mrg_0.5deg_autodrain_3nov08.fill_coast_auto2.nc','r')
+tocell_pi = river.variables['tocell'];
+tocell_pi_f = np.flipud(tocell_pi)
 
-# tocell_LGM = tocell_pi_f
-# tocell_LGM[~tocell_ma.mask==True] = tocell_ma[:,:]
-tocell_LGM[~tocell_ma.mask] = tocell_ma
-# tocell_LGM = np.ma.masked_where(ice_mask_f==0, tocell_ma,copy=True)
+tocell_LGM = tocell_pi_f
 
 # Update PI flow field with the new one
+tmp1 = tocell_LGM.flatten()
+tmp2 = tocell_ma.data.flatten()
+tmp3 = tocell_ma.mask.flatten()
 
+tmp1[~tmp3] = tmp2[~tmp3]
+tocell_final = np.reshape(tmp1,(-1,tocell_LGM.shape[1]))
 
+# Update land mask
+land_mask = river.variables['land_frac'];
+land_mask_f = np.flipud(land_mask)
+land_mask_f[tocell_final>=0] = 1
+
+# Update cell-area (should be non-zero where land exists)
+cellarea = river.variables['cellarea'];
+cellarea_f = np.flipud(cellarea)
+
+# Create new cell-area field
+pi = math.pi
+R = 6371000 # radius of the earth (m)
+area = np.zeros([lat.shape[0],lon.shape[0]])
+for i in range(lat.shape[0]-1):
+	area[i,:] = (R**2)*abs(np.sin(np.deg2rad(lat[i]))-np.sin(np.deg2rad(lat[i+1])))*np.deg2rad(0.5)  # the lon resolution is half a degree
+area[359,:] = area[0,:]
+
+cellarea_2 = np.zeros([lat.shape[0],lon.shape[0]])
+cellarea_2[tocell_final>=0] = area[tocell_final>=0] 
 
 # Output to NetCDF file
 print 'Writing NetCDF file'
@@ -170,16 +195,13 @@ id.variables['latitude'].units = 'degrees'
 id.variables['latitude'][:] = lat[:]
 id.createVariable('tocell', 'f8', ('latitude', 'longitude'))
 id.variables['tocell'].units = 'none'
-id.variables['tocell'][:,:] = np.flipud(tocell_ma)
-# id.createVariable('FRN', 'f8',('latitude','longitude'))
-# id.variables['FRN'].units = 'none'
-# id.variables['FRN'][:,:] = np.flipud(test2[:,1:721])
-# id.createVariable('FLRN', 'f8',('latitude','longitude'))
-# id.variables['FLRN'].units = 'none'
-# id.variables['FLRN'][:,:] = np.flipud(test4[:,1:721])
-# id.createVariable('drn_area', 'f8',('latitude','longitude'))
-# id.variables['drn_area'].units = 'none'
-# id.variables['drn_area'][:,:] = np.flipud(test6[0:360,2:722])
+id.variables['tocell'][:,:] = np.flipud(tocell_final)
+id.createVariable('land_frac', 'f8', ('latitude', 'longitude'))
+id.variables['land_frac'].units = 'none'
+id.variables['land_frac'][:,:] = np.flipud(land_mask_f)
+id.createVariable('cellarea', 'f8', ('latitude', 'longitude'))
+id.variables['cellarea'].units = 'none'
+id.variables['cellarea'][:,:] = np.flipud(cellarea_2)
 id.close()
 
 
