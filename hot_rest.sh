@@ -23,15 +23,20 @@
 
 
 # 2) Prepare river routing scheme files
-
+# This python script creates new tocell, landfrac and cellarea data for time-slice of your choosing.
 source activate LGM # This python environment is used for landlab. It simply loads this package, python3, and all dependencies
+ice_topo_=/p/projects/climber3/huiskamp/POEM/work/LGM_data/ICE-6G-C/ICE-6G-C_LL2/I6_C.VM5a_LL2.
+river_out=/p/projects/climber3/huiskamp/POEM/work/LGM_data/data_for_
 for i in $(seq 0.5 0.5 21); do\
-    python river_data_prep.py ice_topo_$i river_in river_out $i
-
-
+    river_out=/p/projects/climber3/huiskamp/POEM/work/LGM_data/data_for_$i
+    python river_data_prep.py ice_topo_$i.nc river_out $i
 source deactivate LGM
 
-# 3) 
+# 3) This script (from Krista Dunne at the USGS) creates the remaining variables for the river model
+
+echo 1 > fort.5
+echo river_input_file >> fort.5
+cp_river_vars < fort.5
 
 
 
