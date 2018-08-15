@@ -51,10 +51,6 @@ extend_t[0:lat.shape[0]-1,lon.shape[0]:lon.shape[0]*2] = ice_topo_f[0:lat.shape[
 extend_t[0:lat.shape[0]-1,lon.shape[0]*2:lon.shape[0]*3] = ice_topo_f[0:lat.shape[0]-1,:] # Top right 
 extend_t[lat.shape[0]-1:lat.shape[0]*2-2,0:lon.shape[0]*3] = np.fliplr(np.flipud(extend_t[0:lat.shape[0]-1,0:lon.shape[0]*3])) # pad bottom
 
-######### Test with NaNs
-# extend_t[extend_t==0] = np.nan # Tool doesn't like NaNs
-#########
-
 # Create raster grid for flow calculation and add data
 fg = RasterModelGrid((extend_t.shape[0], extend_t.shape[1]), spacing=(1, 1))
 _ = fg.add_field('node','topographic__elevation', extend_t)
@@ -65,33 +61,17 @@ fg.set_closed_boundaries_at_grid_edges(False, False, False, False)
 fr = FlowRouter(fg)
 fg = fr.route_flow()
 
-#drainage_plot(fg, title='Grid 2 using FlowDirectorD8')
+# Preview the flow field with this plotting func.
+# drainage_plot(fg, title='Grid 2 using FlowDirectorD8')
 
-# Find depressions, create lakes and route through them
-#df = DepressionFinderAndRouter(fg)
-#df.map_depressions() # reroute_flow defaults to True
-#df.lake_at_node.reshape(fg.shape)
-
-#plt.imshow(df.lake_at_node.reshape(fg.shape)) # show boolean field of lakes (T/F)
-#plt.show()
-
-#plt.imshow(df.lake_map.reshape(fg.shape)) # show lake by code no.
-#plt.show()
-
-# Alternatively, fill in depressions
+# Fill in Lakes/depressions
 fg.at_node['flow__sink_flag'][fg.core_nodes].sum() # how many depressions do we have?
-hf = SinkFiller(fg, apply_slope=False)
+hf = SinkFiller(fg, apply_slope=True)
 hf.run_one_step()
-
-# Output is a single vector which can be reshaped with 
+fr.run_one_step()
+drainage_plot(fg, title='Grid 2 using FlowDirectorD8')
+# Output is a single vector
 flow_rec = fg.at_node['flow__receiver_node']
-#test2 = np.reshape(flow_rec, (-1, extend_t.shape[1]))
-#test3 = fg.at_node['flow__link_to_receiver_node']
-#test4 = np.reshape(test3, (-1, extend_t.shape[1]))
-# test5 = fg.at_node['drainage_area']
-# test6 = np.reshape(test5, (-1, extend_t.shape[1]))
-
-# plt.imshow(test6)
 
 
 # Convert to a 'tocell' field
@@ -129,173 +109,55 @@ tocell = np.reshape(tocell_tmp,(-1,extend_t.shape[1]))
 tocell_c = np.zeros([lat.shape[0],lon.shape[0]])
 tocell_c = tocell[0:lat.shape[0],lon.shape[0]:lon.shape[0]*2]
 
-# plt.imshow(tocell_c)
-# plt.show()
+######### Create single Earth from tocell field #################
 
-######### Alternative #################
-# Just want this river routing field? Much easier...
 river = Dataset('/p/projects/climber3/huiskamp/POEM/work/LGM_data/River_data/river_network_mrg_0.5deg_autodrain_3nov08.fill_coast_auto2.nc','r')
 tocell_pi = river.variables['tocell'];
 tocell_pi_f = np.flipud(tocell_pi)
 tocell_LGM = np.zeros([lat.shape[0],lon.shape[0]])
 tocell_LGM[2:300,:] = tocell_c[2:300,:]
-tocell_LGM[300:,:] = tocell_pi_f[300:,:]
-
-# 2) Generate ice sheet mask and isolate these regions in our new flow field
-
-tocell_ma = np.ma.masked_where(ice_mask_f==0, tocell_c,copy=True)
-# Remove Antarctica
-tocell_ma.mask[300:,:] = True
-
-
-# ~tocell_ma.mask # should be the boolean mask info. 
-
-# 3) Combine new fields with existing river network data 
-# Import re-gridded STN-30p river network
-
-# river = Dataset(river_rout_in,'r')
-river = Dataset('/p/projects/climber3/huiskamp/POEM/work/LGM_data/River_data/river_network_mrg_0.5deg_autodrain_3nov08.fill_coast_auto2.nc','r')
-tocell_pi = river.variables['tocell'];
-tocell_pi_f = np.flipud(tocell_pi)
-
-tocell_LGM = tocell_pi_f
-
-# Update PI flow field with the new one
-tmp1 = tocell_LGM.flatten()
-tmp2 = tocell_ma.data.flatten()
-tmp3 = tocell_ma.mask.flatten()
-
-tmp1[~tmp3] = tmp2[~tmp3] # This is creating problems!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-tocell_final = np.reshape(tmp1,(-1,tocell_LGM.shape[1]))
-
-######################## Check for cell pairs that flow to each other ###########################
-
-dest_cell = np.zeros([tmp1.shape[0]])
-x_flow = np.zeros([tmp1.shape[0]])
-y_flow = np.zeros([tmp1.shape[0]])
-for i in range(0,300*720):
-	if tmp1[i] == 0: # if it flows to itself
-		dest_cell[i] = i
-		x_flow[i] = 0
-		y_flow[i] = 0
-	elif tmp1[i] == 1:
-		dest_cell[i] = i+1 # to the east
-		x_flow[i] = 1
-		y_flow[i] = 0
-	elif tmp1[i] == 4:
-		dest_cell[i] = i+extend_t.shape[1] # to the south
-		x_flow[i] = 0
-		y_flow[i] = -1
-	elif tmp1[i] == 2:
-		dest_cell[i] = i+extend_t.shape[1]+1 # to the south-east
-		x_flow[i] = 1
-		y_flow[i] = -1
-	elif tmp1[i] == 16:
-		dest_cell[i] = i-1 # to the west 
-		x_flow[i] = -1
-		y_flow[i] = 0		
-	elif tmp1[i] == 8:
-		dest_cell[i] = i+extend_t.shape[1]-1 # to the south-west 
-		x_flow[i] = -1
-		y_flow[i] = -1		
-	elif tmp1[i] == 64:
-		dest_cell[i] = i-extend_t.shape[1] # to the north 
-		x_flow[i] = 0
-		y_flow[i] = 1		
-	elif tmp1[i] == 128:
-		dest_cell[i] = i-extend_t.shape[1]+1 # to the north-east
-		x_flow[i] = 1
-		y_flow[i] = 1	
-	elif tmp1[i] == 32:
-		dest_cell[i] = i-extend_t.shape[1]-1 # to the north-west 
-		x_flow[i] = -1
-		y_flow[i] = 1
-
-# What does our flow field look like?
-x_flow2 = np.reshape(np.flipud(x_flow),(-1,tocell_LGM.shape[1]))
-y_flow2 = np.reshape(np.flipud(y_flow),(-1,tocell_LGM.shape[1]))
-
-plt.quiver(x_flow2,y_flow2, scale_units='xy')
-plt.show()	
-
-dest_cell[np.isnan(dest_cell)] = 0
-loops_pair = np.zeros([tmp1.shape[0]])
-loops_inf = np.zeros([tmp1.shape[0]])
-# for i in range(tmp1.shape[0]):
-for i in (197854,197855):
-	path = int(dest_cell[i]) # path from cell i to the next cell
-	path_len = 0
-	current_cell = i
-	prev_cell = 999 # initialise an impossible number
-	cont = tmp1[i]
-	while (cont > 0): 
-		next_cell = path # cell to which the current cell flows (cell a(i) -> b(next_cell))
-		path_len += 1 # If flow continues, it's path length increases
-		if next_cell == prev_cell: # Kill loop if two cells flow to each other
-			print('Two cells flowing into each other at i='+str(i), 'pathlen='+str(path_len))
-			loops_pair[current_cell] = 1
-			break
-		elif path_len > 1000: # Kill loop if there's a endless river
-			print('infinite flow at i='+str(i), 'pathlen='+str(path_len))
-			loops_inf[current_cell] = 1
-			break
-		path = int(dest_cell[next_cell]) # Update flow path to be the cell that b flows to
-		prev_cell = current_cell # The previous cell will be what is now the current cell
-		current_cell = next_cell # The current cell will be what was the next cell 
-		cont = tmp1[current_cell] # To see if the river has ended, we see if the next cell is ocean (does cont = 0?)
-		print(cont)
-	# print(i)
-
-###### see what's going in in the flow fields #########
-loops_array = np.reshape(loops_inf,(-1,tocell_LGM.shape[1]))
-plt.imshow(loops_array)
-plt.show()
-
-broken_flow = loops*tmp1
-flow_test = np.reshape(broken_flow,(-1,tocell_LGM.shape[1]))
-plt.imshow(flow_test)
-plt.show()
 
 
 ######################## Update land mask ###########################
-land_mask = river.variables['land_frac'];
-land_mask_f = np.flipud(land_mask)
-land_mask_f[tocell_final>=0] = 1
 
-# For alternative flow map
 land_mask_f = np.zeros([lat.shape[0],lon.shape[0]])
-land_mask_f[ice_topo_f>0] = 1
-
+land_mask_f[ice_topo_f>0] = 1; land_mask_f[359,:] = 1
 # Alter your tocell field to eliminate ocean tiles
 tocell_LGM[land_mask_f<1] = np.nan; tocell_LGM[0,:] = np.nan
-tocell_LGM[tocell_LGM==-9999] = np.nan
 
-# There are still internal drainage points we need to fix
+for i in range(300,360): 
+	for j in range(720):
+		if tocell_pi_f[i,j] >= 0:
+			tocell_LGM[i,j] = tocell_pi_f[i,j] 
+
+
+# Finally, outflow cells at the coast
+
+# [32, 64, 128]
+# [16, 0,    1]
+# [8,  4,    2]
+
 tocell_vec = tocell_LGM.flatten()
-zero_count = 0
-for i in range(tocell_vec.shape[0]-1):
-	if tocell_vec[i] == 0:
-		if tocell_vec[i+1] > 0:
-			tocell_vec[i] = tocell_vec[i+1]
-		elif tocell_vec[i-1] > 0:
-			tocell_vec[i] = tocell_vec[i-1]
-		elif tocell_vec[i+720] > 0:
-			tocell_vec[i] = tocell_vec[i+720]
-		elif tocell_vec[i-720] > 0:
-			tocell_vec[i] = tocell_vec[i-720]
-		elif tocell_vec[i+720+1] > 0:
-			tocell_vec[i] = tocell_vec[i+720+1]
-		elif tocell_vec[i-720+1] > 0:
-			tocell_vec[i] = tocell_vec[i-720+1]
-		elif tocell_vec[i+720-1] > 0:
-			tocell_vec[i] = tocell_vec[i+720-1]
-		elif tocell_vec[i-720-1] > 0:
-			tocell_vec[i] = tocell_vec[i-720-1]
-		else:
-			tocell_vec[i] = np.nan
-		zero_count+=1
-		print(zero_count)
+for i in range(tocell_vec.shape[0]-1440): # We can leave off the last two rows (this is just land anyway) - makes things easier.
+	if tocell_vec[i] > 0:
+		if tocell_vec[i] == 1 and np.isnan(tocell_vec[i+1]) == True:	
+			tocell_vec[i+1] = 0
+		if tocell_vec[i] == 16 and np.isnan(tocell_vec[i-1]) == True:	
+			tocell_vec[i-1] = 0
+		if tocell_vec[i] == 4 and np.isnan(tocell_vec[i+720]) == True:	
+			tocell_vec[i+720] = 0
+		if tocell_vec[i] == 64 and np.isnan(tocell_vec[i-720]) == True:
+			tocell_vec[i-720] = 0
+		if tocell_vec[i] == 2 and np.isnan(tocell_vec[i+720+1]) == True:	
+			tocell_vec[i+720+1] = 0
+		if tocell_vec[i] == 128 and np.isnan(tocell_vec[i-720+1]) == True:
+			tocell_vec[i-720+1] = 0
+		if tocell_vec[i] == 8 and np.isnan(tocell_vec[i+720-1]) == True:	
+			tocell_vec[i+720-1] = 0
+		if tocell_vec[i] == 32 and np.isnan(tocell_vec[i-720-1]) == True:
+			tocell_vec[i-720-1] = 0
 
+# Does it look OK?
 fixed_test = np.reshape(tocell_vec,(-1,tocell_LGM.shape[1]))
 plt.imshow(fixed_test)
 plt.show()
@@ -303,7 +165,6 @@ plt.show()
 # Re-update the damn land mask.
 land_mask_f = np.zeros([lat.shape[0],lon.shape[0]])
 land_mask_f[fixed_test>0] = 1
-
 
 ######################## Create new cell-area field ###########################
 pi = math.pi
@@ -319,7 +180,7 @@ cellarea[land_mask_f>0] = area[land_mask_f>0]
 ######################## Output to NetCDF file ###########################
 print('Writing NetCDF file for ',year,'ka')
 id = Dataset(river_rout_out, 'w')
-# id = Dataset('/p/projects/climber3/huiskamp/POEM/work/LGM_data/River_data/test3.nc', 'w')
+# id = Dataset('/p/projects/climber3/huiskamp/POEM/work/LGM_data/River_data/test4.nc', 'w')
 id.createDimension('lon', lon.shape[0])
 id.createDimension('lat', lat.shape[0])
 id.createVariable('lon', 'f8', ('lon'))
@@ -337,14 +198,102 @@ id.variables['land_frac'][:,:] = np.flipud(land_mask_f)
 id.createVariable('cellarea', 'f8', ('lat', 'lon'))
 id.variables['cellarea'].units = 'none'
 id.variables['cellarea'][:,:] = np.flipud(cellarea)
-id.createVariable('x_flow', 'f8', ('lat', 'lon'))
-id.variables['x_flow'].units = 'none'
-id.variables['x_flow'][:,:] = np.fliplr(x_flow2)
-id.createVariable('y_flow', 'f8', ('lat', 'lon'))
-id.variables['y_flow'].units = 'none'
-id.variables['y_flow'][:,:] = np.fliplr(y_flow2)
+# id.createVariable('x_flow', 'f8', ('lat', 'lon'))
+# id.variables['x_flow'].units = 'none'
+# id.variables['x_flow'][:,:] = np.fliplr(x_flow2)
+# id.createVariable('y_flow', 'f8', ('lat', 'lon'))
+# id.variables['y_flow'].units = 'none'
+# id.variables['y_flow'][:,:] = np.fliplr(y_flow2)
 id.close()
 
 
+# This section should not be required, but useful when making changes by hand #
+######################## Check for cell pairs that flow to each other ###########################
+
+# dest_cell = np.zeros([tmp1.shape[0]])
+# x_flow = np.zeros([tmp1.shape[0]])
+# y_flow = np.zeros([tmp1.shape[0]])
+# for i in range(0,300*720):
+# 	if tmp1[i] == 0: # if it flows to itself
+# 		dest_cell[i] = i
+# 		x_flow[i] = 0
+# 		y_flow[i] = 0
+# 	elif tmp1[i] == 1:
+# 		dest_cell[i] = i+1 # to the east
+# 		x_flow[i] = 1
+# 		y_flow[i] = 0
+# 	elif tmp1[i] == 4:
+# 		dest_cell[i] = i+extend_t.shape[1] # to the south
+# 		x_flow[i] = 0
+# 		y_flow[i] = -1
+# 	elif tmp1[i] == 2:
+# 		dest_cell[i] = i+extend_t.shape[1]+1 # to the south-east
+# 		x_flow[i] = 1
+# 		y_flow[i] = -1
+# 	elif tmp1[i] == 16:
+# 		dest_cell[i] = i-1 # to the west 
+# 		x_flow[i] = -1
+# 		y_flow[i] = 0		
+# 	elif tmp1[i] == 8:
+# 		dest_cell[i] = i+extend_t.shape[1]-1 # to the south-west 
+# 		x_flow[i] = -1
+# 		y_flow[i] = -1		
+# 	elif tmp1[i] == 64:
+# 		dest_cell[i] = i-extend_t.shape[1] # to the north 
+# 		x_flow[i] = 0
+# 		y_flow[i] = 1		
+# 	elif tmp1[i] == 128:
+# 		dest_cell[i] = i-extend_t.shape[1]+1 # to the north-east
+# 		x_flow[i] = 1
+# 		y_flow[i] = 1	
+# 	elif tmp1[i] == 32:
+# 		dest_cell[i] = i-extend_t.shape[1]-1 # to the north-west 
+# 		x_flow[i] = -1
+# 		y_flow[i] = 1
+
+# # What does our flow field look like?
+# x_flow2 = np.reshape(np.flipud(x_flow),(-1,tocell_LGM.shape[1]))
+# y_flow2 = np.reshape(np.flipud(y_flow),(-1,tocell_LGM.shape[1]))
+
+# plt.quiver(x_flow2,y_flow2, scale_units='xy')
+# plt.show()	
+
+# dest_cell[np.isnan(dest_cell)] = 0
+# loops_pair = np.zeros([tmp1.shape[0]])
+# loops_inf = np.zeros([tmp1.shape[0]])
+# # for i in range(tmp1.shape[0]):
+# for i in (197854,197855):
+# 	path = int(dest_cell[i]) # path from cell i to the next cell
+# 	path_len = 0
+# 	current_cell = i
+# 	prev_cell = 999 # initialise an impossible number
+# 	cont = tmp1[i]
+# 	while (cont > 0): 
+# 		next_cell = path # cell to which the current cell flows (cell a(i) -> b(next_cell))
+# 		path_len += 1 # If flow continues, it's path length increases
+# 		if next_cell == prev_cell: # Kill loop if two cells flow to each other
+# 			print('Two cells flowing into each other at i='+str(i), 'pathlen='+str(path_len))
+# 			loops_pair[current_cell] = 1
+# 			break
+# 		elif path_len > 1000: # Kill loop if there's a endless river
+# 			print('infinite flow at i='+str(i), 'pathlen='+str(path_len))
+# 			loops_inf[current_cell] = 1
+# 			break
+# 		path = int(dest_cell[next_cell]) # Update flow path to be the cell that b flows to
+# 		prev_cell = current_cell # The previous cell will be what is now the current cell
+# 		current_cell = next_cell # The current cell will be what was the next cell 
+# 		cont = tmp1[current_cell] # To see if the river has ended, we see if the next cell is ocean (does cont = 0?)
+# 		print(cont)
+# 	# print(i)
+
+# ###### see what's going in in the flow fields #########
+# loops_array = np.reshape(loops_inf,(-1,tocell_LGM.shape[1]))
+# plt.imshow(loops_array)
+# plt.show()
+
+# broken_flow = loops*tmp1
+# flow_test = np.reshape(broken_flow,(-1,tocell_LGM.shape[1]))
+# plt.imshow(flow_test)
+# plt.show()
 
 
