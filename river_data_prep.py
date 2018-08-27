@@ -69,7 +69,7 @@ fg.at_node['flow__sink_flag'][fg.core_nodes].sum() # how many depressions do we 
 hf = SinkFiller(fg, apply_slope=True)
 hf.run_one_step()
 fr.run_one_step()
-drainage_plot(fg, title='Grid 2 using FlowDirectorD8')
+# drainage_plot(fg, title='Grid 2 using FlowDirectorD8')
 # Output is a single vector
 flow_rec = fg.at_node['flow__receiver_node']
 
@@ -159,10 +159,10 @@ for i in range(tocell_vec.shape[0]-1440): # We can leave off the last two rows (
 
 # Does it look OK?
 fixed_test = np.reshape(tocell_vec,(-1,tocell_LGM.shape[1]))
-plt.imshow(fixed_test)
-plt.show()
+# plt.imshow(fixed_test)
+# plt.show()
 
-# Re-update the damn land mask.
+######################## Re-update the damn land mask #########################
 land_mask_f = np.zeros([lat.shape[0],lon.shape[0]])
 land_mask_f[fixed_test>0] = 1
 
@@ -206,6 +206,40 @@ id.variables['cellarea'][:,:] = np.flipud(cellarea)
 # id.variables['y_flow'][:,:] = np.fliplr(y_flow2)
 id.close()
 
+id = Dataset('/p/projects/climber3/huiskamp/POEM/work/LGM_data/River_data/land_mask_LGM.nc', 'w')
+id.createDimension('lon', lon.shape[0])
+id.createDimension('lat', lat.shape[0])
+id.createVariable('lon', 'f8', ('lon'))
+id.variables['lon'].units = 'degrees'
+id.variables['lon'][:] = lon[:]
+id.createVariable('lat', 'f8', ('lat'))
+id.variables['lat'].units = 'degrees'
+id.variables['lat'][:] = lat[:]
+id.createVariable('land_frac', 'f8', ('lat', 'lon'))
+id.variables['land_frac'].units = 'none'
+id.variables['land_frac'][:,:] = np.flipud(land_mask_f)
+id.close()
+
+# We need to regrid the land mask for input into the GFDL river_regrid tool.
+os.system("pyferret -script land_mask_regrid") # This assumes you've already saved the land mask below
+L_mask = Dataset('/p/projects/climber3/huiskamp/POEM/work/LGM_data/land_mask_reg.nc','r')
+mask = L_mask.variables['LAND_FRAC_R']
+lon_L = L_mask.variables['GRID_X']
+lat_L = L_mask.variables['GRID_Y']
+
+id = Dataset('/p/projects/climber3/huiskamp/POEM/work/LGM_data/River_data/land_mask_tile1.nc', 'w')
+id.createDimension('nx', lon_L.shape[0])
+id.createDimension('ny', lat_L.shape[0])
+id.createVariable('nx', 'f8', ('nx'))
+id.variables['nx'].units = 'degrees'
+id.variables['nx'][:] = lon_L[:]
+id.createVariable('ny', 'f8', ('ny'))
+id.variables['ny'].units = 'degrees'
+id.variables['ny'][:] = lat_L[:]
+id.createVariable('mask', 'f8', ('ny', 'nx'))
+id.variables['mask'].units = 'none'
+id.variables['mask'][:,:] = mask[:,:]
+id.close()
 
 # This section should not be required, but useful when making changes by hand #
 ######################## Check for cell pairs that flow to each other ###########################
@@ -257,6 +291,8 @@ id.close()
 
 # plt.quiver(x_flow2,y_flow2, scale_units='xy')
 # plt.show()	
+
+## Do we have infinite flow loops?
 
 # dest_cell[np.isnan(dest_cell)] = 0
 # loops_pair = np.zeros([tmp1.shape[0]])

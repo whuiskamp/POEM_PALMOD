@@ -1,0 +1,12 @@
+! Regrid the land mask generated from river_data_prep.py in order to run it through river_regrid tool.
+! Regrids to land model grid in chosen configuration.
+! Run using (py)ferret -script land_mask_regrid
+
+use "/p/projects/climber3/huiskamp/POEM/work/LGM_data/River_data/land_mask_LGM.nc"
+use "/p/projects/climber3/petri/POEM/work/ESM2M_pi-control_C2/INPUT/river_data.nc"
+
+let land_frac_r = land_frac[gxy=tocell[d=2],d=1] 
+ 
+save/file="/p/projects/climber3/huiskamp/POEM/work/LGM_data/land_mask_reg.nc" land_frac_r
+
+ex

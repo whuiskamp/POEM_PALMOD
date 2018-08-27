@@ -38,6 +38,10 @@ echo 1 > fort.5
 echo river_input_file >> fort.5
 cp_river_vars < fort.5
 
+# 4) Regrid to coarser model grid
+
+../../src/tools/river_regrid/./river_regrid --mosaic /p/projects/climber3/petri/POEM/exp/ESM2M_pi-control_C2/INPUT/grid_spec.nc --river_src ../LGM_data/River_data/river_vars_gen/river_network.tile1.nc --output river_data_LGM
+
 
 
 
