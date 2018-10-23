@@ -1,6 +1,4 @@
-These scripts are for the preparation and integration of both an equilibrium and transient simulations of the last deglacial 
-period using PIK's POEM model. Currently the configuration being used is: MOM5 in p* coordinates on a tripolar grid,
-SIS sea ice model, LM2 (land_lad2) land surface model, Aeolus atmospheric model and the ICE-6G-C ice sheet reconstruction.
+These scripts are for the preparation and integration of both an equilibrium and transient simulations of the last deglacial period using PIK's POEM model. Currently the configuration being used is a coarse resolution iteration of ESM2M: MOM5 in p* coordinates on a tripolar grid, SIS sea ice model, LM2 (land_lad2) land surface model, AM2 atmospheric model and the ICE-6G-C ice sheet reconstruction.
 
-Description of each scripts' function:
+Description of each scripts' function: TBA ...
 

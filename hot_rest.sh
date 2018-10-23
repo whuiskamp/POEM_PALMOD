@@ -1,6 +1,6 @@
 #!/bin/bash
 ## This script alters the INPUT restart files for MOM5 in order to 
-## change boundary conditions such as topography/ land sea mask mid-way through a 
+## change boundary conditions such as topography/ land sea mask part-way through a 
 ## simulation. Many sections of this script will only need to be run once.
 ## Run this from the experiment directory, NOT the INPUT dir.
 ## This script requires: GFDL/MOM tools (POEM/src/tools) make_topog,
@@ -14,17 +14,19 @@
 ## W. Huiskamp, 2018 -  huiskamp@pik-potsdam.de
 
 #################################### Before simulation ########################################
-
+source activate LGM # This python environment is used for landlab. It simply loads this package, python3, and all dependencies
 # 1) Prepare Forcing files for ocean (topography and masks)
-
 # Generate new topography
+# This uses the ICE6C reconstruction to calculate anomalies in bathymetry from our default topog.nc field. 
 
-# Generate new masks
-
+if [! -f topog_$1yrBP.nc ]
+    ferret -script update_topog.jnl $1 # This will create a new topog file, but without corrected inland lakes.
+    python 
+fi
 
 # 2) Prepare river routing scheme files
 # This python script creates new tocell, landfrac and cellarea data for time-slice of your choosing.
-source activate LGM # This python environment is used for landlab. It simply loads this package, python3, and all dependencies
+
 ice_topo_=/p/projects/climber3/huiskamp/POEM/work/LGM_data/ICE-6G-C/ICE-6G-C_LL2/I6_C.VM5a_LL2.
 river_out=/p/projects/climber3/huiskamp/POEM/work/LGM_data/data_for_
 for i in $(seq 0.5 0.5 21); do\
@@ -40,7 +42,10 @@ cp_river_vars < fort.5
 
 # 4) Regrid to coarser model grid
 
-../../src/tools/river_regrid/./river_regrid --mosaic /p/projects/climber3/petri/POEM/exp/ESM2M_pi-control_C2/INPUT/grid_spec.nc --river_src ../LGM_data/River_data/river_vars_gen/river_network.tile1.nc --output river_data_LGM
+../../src/tools/river_regrid/./river_regrid \
+      --mosaic /p/projects/climber3/petri/POEM/exp/ESM2M_pi-control_C2/INPUT/grid_spec.nc \
+      --river_src ../LGM_data/River_data/river_vars_gen/river_network.tile1.nc \
+      --output river_data_LGM
 
 
 

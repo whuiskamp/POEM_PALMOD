@@ -14,14 +14,14 @@
 !! Use a binomal smoother x/y=@sbn:3 (3 is the default window size)
 !! 
 !! Script should be run with year as argument. For eg: ferret -script input_data_processing 21.0
-!! $1 is year
+!! $1 is kyrBP
 ! 1) Read in present day bathymetry from ICE-6G reconstruction and the bathy for the 
 ! 	 selected time-slice. Read in a file that contains a variable on the tripolar grid.
 
-use "ICE-6G-C/I6_C.VM5a_1deg.0.nc" 1
-use "ICE-6G-C/I6_C.VM5a_1deg.$1.nc" 2
+use "/p/projects/climber3/huiskamp/POEM/work/LGM_data/ICE-6G-C/I6_C.VM5a_1deg.0.nc" 1
+use "/p/projects/climber3/huiskamp/POEM/work/LGM_data/ICE-6G-C/I6_C.VM5a_1deg.$1.nc" 2
 use "/p/projects/climber3/huiskamp/POEM/work/om3Xcoarse-advtest-001/history/20000203.ocean_decadal.nc" 3
-use "/p/projects/climber3/huiskamp/POEM/exp/CM2M_coarse_BLING/INPUT/ground_type.nc" 4
+use "/p/projects/climber3/huiskamp/POEM/exp/ESM2M_pi-control_C2/INPUT/ground_type.nc" 4
 
 ! 2) Edit ice sheet map in ground_types data, then alter the land/sea mask.
 

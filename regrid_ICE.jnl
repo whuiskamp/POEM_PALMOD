@@ -3,13 +3,16 @@
 ! Run using (py)ferret -script regrid_ICE $1
 ! where $1 is the kyr BP (eg. 21.0)
 
-use "/p/projects/climber3/huiskamp/POEM/work/LGM_data/ICE-6G-C/I6_C.VM5a_1deg.$1.nc"
-use "/p/projects/climber3/huiskamp/POEM/work/LGM_data/River_data/river_network_mrg_0.5deg_autodrain_3nov08.fill_coast_auto2.nc"
+use "/p/projects/climber3/huiskamp/POEM/work/LGM_data/ICE-6G-C/I6_C.VM5a_1deg.$1.nc" 1
+use "/p/projects/climber3/huiskamp/POEM/work/LGM_data/River_data/river_network_mrg_0.5deg_autodrain_3nov08.fill_coast_auto2.nc" 2
+use "/p/projects/climber3/huiskamp/POEM/exp/ESM2M_coarse/INPUT/ground_type.nc" 3
 
 let orog_ll2 = orog[gxy=tocell[d=2],d=1] 
-let ice_mask_ll2 = sftgif[gxy=tocell[d=2],d=1] 
+let ice_mask_ll2 = sftgif[gxy=frac[d=3],d=1]/100  ! The ICE-6G recon defines the mask on a % scale. 
 
 ! include any other fields here you may need later
 
 spawn rm /p/projects/climber3/huiskamp/POEM/work/LGM_data/ICE-6G-C/ICE-6G-C_LL2/I6_C.VM5a_LL2.$1.nc
-save/file="/p/projects/climber3/huiskamp/POEM/work/LGM_data/ICE-6G-C/ICE-6G-C_LL2/I6_C.VM5a_LL2.$1.nc" orog_ll2,  ice_mask_ll2
+save/file="/p/projects/climber3/huiskamp/POEM/work/LGM_data/ICE-6G-C/ICE-6G-C_LL2/I6_C.VM5a_LL2.$1.nc" orog_ll2
+save/file="/p/projects/climber3/huiskamp/POEM/work/LGM_data/ground_type/I6_C_regrid.$1.nc" ice_mask_ll2
+

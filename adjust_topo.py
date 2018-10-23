@@ -1,34 +1,41 @@
 from netCDF4 import Dataset
 import numpy as np 
+import sys
+import matplotlib
+import matplotlib.pyplot as plt
+
 
 # This script will update the bathymetry and land/sea mask in topog.nc
 # and write out a new file for the appropriate time-slice.
-# 
-
-def adjust_topo(old_topo_in_path, topo_anomaly_path, new_topo_out)
+ 
+year = sys.argv[1] # should be kyrBP
 
 # Read in data
 
-old = Dataset(old_topo_in_path, 'r')
-anom = Dataset(topo_anomaly_path, 'r')
+topo = Dataset('tmp_topo.nc', 'r')
+depth = topo.variables['TMP']; topo.close()
 
-old_t = old.variables['depth']; old.close()
-delta_t = anom.variables['']; anom.close()
-new_t = np.zeros(old_t.shape[0],old_t.shape[1])
+# Apply change in topo. Only lakes remain to be filled
+# This section only applies to 21kyrBP
+depth[64,95] = np.nan
+depth[74,112:114] = np.nan
+depth[75,114] = np.nan
+depth[77,113:115] = np.nan
+depth[78,112] = np.nan
 
-# Apply change in topo.
-new_t[:] = old_t[:] + delta_t[:]
+# Adjust mask and enforce min depth of 30m and change land vals back to 0
 
-# Adjust mask and enforce min depth of 30m
+mask = np.zeros(depth.shape) 
+mask[depth<=0]=1
+depth[mask==1]=0
 
-new_t[new_t<=0] = 0
-new_t[0<new_t<30] = 30
+depth[np.where((depth > 0) & (depth < 30))] = 30
 
-id = Dataset(new_topo_out, 'w')
-id.createDimension('longitude', lon.shape[0])
-id.createDimension('latitude', lat.shape[0])
+id = Dataset('topog_final.nc', 'w')
+id.createDimension('longitude', 120)
+id.createDimension('latitude', 80)
 id.createVariable('depth', 'f8', ('latitude', 'longitude'))
-id.variables['depth'].units = 'none'
-id.variables['depth'][:,:] = new_t
+id.variables['depth'].units = 'm'
+id.variables['depth'][:,:] = depth
 id.close()
 

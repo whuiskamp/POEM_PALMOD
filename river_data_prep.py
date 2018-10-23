@@ -6,37 +6,38 @@ from landlab.components import FlowRouter, DepressionFinderAndRouter, SinkFiller
 from landlab import BAD_INDEX_VALUE as XX
 import matplotlib
 import matplotlib.pyplot as plt
-# import landlab plotting functionality
 from landlab.plot.drainage_plot import drainage_plot
+import sys
+import math
 
 # This script will prepare the input file land_lad2 requires for its river routing scheme.
-# Data used are the STN-30p river network (the default for CM2.5) which is then augmented 
-# over North America and Eurasia to account for LGM ice sheets. This data comes from the 
-# ICE-6G-C reconstruction.
-# Data in:
-# ice_sheet_topo - an orography field (elevation in m) from the ice sheet reconstruction
-#				   of your choice.
-# river_rout_in  - An existing river routing field (specifically, tocell) you wish to update
-# river_rout_out - The new river routing file with updated tocell field
+# Data comes from the ICE-6G-C reconstruction and should have already been regridded to the
+# land_lad2 grid resolution.
+# Arguments:
 # year 			 - The year for which you are creating the river network
 # 				   (should be defined in years kbp, eg: 21 -> 0.5)
+# river_rout_out - The new river routing file with updated tocell field that will be the output
 # This script requires the landlab package (https://github.com/landlab/landlab/wiki).
+# To run: Activate LGM anaconda environment 'source activate LGM'
+# eg:	  python river_data_prep 21 river_data_LGM
 # Willem Huiskamp, 2018
 
-def river_data_prep(ice_sheet_topo, river_rout_out, year)
+# Get external arguments
+
+year = sys.argv[1]
+river_rout_out = sys.argv[2]
 
 # 1) prepare new tocell field for ice sheets
 # Import re-gridded ice sheet topography
 
-ice = Dataset('/p/projects/climber3/huiskamp/POEM/work/LGM_data/ICE-6G-C/ICE-6G-C_LL2/I6_C.VM5a_LL2.21.nc','r')
-#ice = Dataset(ice_sheet_topo,'r')
-ice_topo = ice.variables['OROG_LL2']; # [360,720]
+ice = Dataset(('/p/projects/climber3/huiskamp/POEM/work/LGM_data/ICE-6G-C/ICE-6G-C_LL2/I6_C.VM5a_LL2.',year,'.nc'),'r')
+ice_topo = ice.variables['OROG_LL2'][:]; # [360,720]
 ice_topo_f = np.flipud(ice_topo)
-ice_mask = ice.variables['ICE_MASK_LL2'];
+ice_mask = ice.variables['ICE_MASK_LL2'][:];
 ice_mask_f = np.flipud(ice_mask)
-
-lon = ice.variables['GRID_X']
-lat = ice.variables['GRID_Y']
+lon = ice.variables['GRID_X'][:]
+lat = ice.variables['GRID_Y'][:]
+ice.close()
 
 # Extend the field at the bottom and sides (one will contain no flow) to avoid hard boundaries.
 # ie: The Earth is replicated 6 times here.
@@ -125,7 +126,7 @@ land_mask_f[ice_topo_f>0] = 1; land_mask_f[359,:] = 1
 # Alter your tocell field to eliminate ocean tiles
 tocell_LGM[land_mask_f<1] = np.nan; tocell_LGM[0,:] = np.nan
 
-for i in range(300,360): 
+for i in range(300,360):
 	for j in range(720):
 		if tocell_pi_f[i,j] >= 0:
 			tocell_LGM[i,j] = tocell_pi_f[i,j] 
@@ -241,95 +242,8 @@ id.variables['mask'].units = 'none'
 id.variables['mask'][:,:] = mask[:,:]
 id.close()
 
-# This section should not be required, but useful when making changes by hand #
-######################## Check for cell pairs that flow to each other ###########################
 
-# dest_cell = np.zeros([tmp1.shape[0]])
-# x_flow = np.zeros([tmp1.shape[0]])
-# y_flow = np.zeros([tmp1.shape[0]])
-# for i in range(0,300*720):
-# 	if tmp1[i] == 0: # if it flows to itself
-# 		dest_cell[i] = i
-# 		x_flow[i] = 0
-# 		y_flow[i] = 0
-# 	elif tmp1[i] == 1:
-# 		dest_cell[i] = i+1 # to the east
-# 		x_flow[i] = 1
-# 		y_flow[i] = 0
-# 	elif tmp1[i] == 4:
-# 		dest_cell[i] = i+extend_t.shape[1] # to the south
-# 		x_flow[i] = 0
-# 		y_flow[i] = -1
-# 	elif tmp1[i] == 2:
-# 		dest_cell[i] = i+extend_t.shape[1]+1 # to the south-east
-# 		x_flow[i] = 1
-# 		y_flow[i] = -1
-# 	elif tmp1[i] == 16:
-# 		dest_cell[i] = i-1 # to the west 
-# 		x_flow[i] = -1
-# 		y_flow[i] = 0		
-# 	elif tmp1[i] == 8:
-# 		dest_cell[i] = i+extend_t.shape[1]-1 # to the south-west 
-# 		x_flow[i] = -1
-# 		y_flow[i] = -1		
-# 	elif tmp1[i] == 64:
-# 		dest_cell[i] = i-extend_t.shape[1] # to the north 
-# 		x_flow[i] = 0
-# 		y_flow[i] = 1		
-# 	elif tmp1[i] == 128:
-# 		dest_cell[i] = i-extend_t.shape[1]+1 # to the north-east
-# 		x_flow[i] = 1
-# 		y_flow[i] = 1	
-# 	elif tmp1[i] == 32:
-# 		dest_cell[i] = i-extend_t.shape[1]-1 # to the north-west 
-# 		x_flow[i] = -1
-# 		y_flow[i] = 1
 
-# # What does our flow field look like?
-# x_flow2 = np.reshape(np.flipud(x_flow),(-1,tocell_LGM.shape[1]))
-# y_flow2 = np.reshape(np.flipud(y_flow),(-1,tocell_LGM.shape[1]))
 
-# plt.quiver(x_flow2,y_flow2, scale_units='xy')
-# plt.show()	
-
-## Do we have infinite flow loops?
-
-# dest_cell[np.isnan(dest_cell)] = 0
-# loops_pair = np.zeros([tmp1.shape[0]])
-# loops_inf = np.zeros([tmp1.shape[0]])
-# # for i in range(tmp1.shape[0]):
-# for i in (197854,197855):
-# 	path = int(dest_cell[i]) # path from cell i to the next cell
-# 	path_len = 0
-# 	current_cell = i
-# 	prev_cell = 999 # initialise an impossible number
-# 	cont = tmp1[i]
-# 	while (cont > 0): 
-# 		next_cell = path # cell to which the current cell flows (cell a(i) -> b(next_cell))
-# 		path_len += 1 # If flow continues, it's path length increases
-# 		if next_cell == prev_cell: # Kill loop if two cells flow to each other
-# 			print('Two cells flowing into each other at i='+str(i), 'pathlen='+str(path_len))
-# 			loops_pair[current_cell] = 1
-# 			break
-# 		elif path_len > 1000: # Kill loop if there's a endless river
-# 			print('infinite flow at i='+str(i), 'pathlen='+str(path_len))
-# 			loops_inf[current_cell] = 1
-# 			break
-# 		path = int(dest_cell[next_cell]) # Update flow path to be the cell that b flows to
-# 		prev_cell = current_cell # The previous cell will be what is now the current cell
-# 		current_cell = next_cell # The current cell will be what was the next cell 
-# 		cont = tmp1[current_cell] # To see if the river has ended, we see if the next cell is ocean (does cont = 0?)
-# 		print(cont)
-# 	# print(i)
-
-# ###### see what's going in in the flow fields #########
-# loops_array = np.reshape(loops_inf,(-1,tocell_LGM.shape[1]))
-# plt.imshow(loops_array)
-# plt.show()
-
-# broken_flow = loops*tmp1
-# flow_test = np.reshape(broken_flow,(-1,tocell_LGM.shape[1]))
-# plt.imshow(flow_test)
-# plt.show()
 
 
